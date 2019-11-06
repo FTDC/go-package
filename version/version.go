@@ -45,7 +45,6 @@ func (VersionPlugin) InitPlugin(messenger plugin.BinaryMessenger) error {
 	channel.HandleFunc(getVersion, getVersionFunc)
 	channel.HandleFunc(openUrl, openUrlFunc)
 	channel.HandleFunc(initVpn, initVpnFunc)
-	//channel.HandleFunc(startXroute, startXrouteFunc)
 	channel.HandleFunc(connectVpn, ConnectVpnFunc)
 	channel.HandleFunc(closeConnect, closeConnectFunc)
 
@@ -54,13 +53,21 @@ func (VersionPlugin) InitPlugin(messenger plugin.BinaryMessenger) error {
 
 // 初始化VPN
 func initVpnFunc(arguments interface{}) (reply interface{}, err error) {
+
+	argsMap := arguments.(map[interface{}]interface{})
+
+	url := argsMap["routeList"].(string)
+
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@  url @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	fmt.Println(url)
+
 	cmd := exec.Command("XRoute.exe", "")
 	err = cmd.Start()
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 
-	initVPN("http://120.79.96.245:8003/routes/pc_d2o.pac")
+	go initVPN(url)
 
 	return "success", nil
 }
@@ -79,10 +86,12 @@ func startXrouteFunc() (reply interface{}, err error) {
 func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 	res := connectVpnServer(1, "aes-256-cfb", "58Ssd2nn95", "120.79.96.245", "8101", "0|0|test34qcPxEJcrE4xVLa41J5")
 
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	fmt.Println(res["fnc"])
 	if res["fnc"] == "startXRouteVPNBack" {
-		return "fail", nil
+		return "success", nil
 	}
-	return "success", nil
+	return "fail", nil
 
 }
 
@@ -90,11 +99,12 @@ func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 func closeConnectFunc(arguments interface{}) (reply interface{}, err error) {
 	res := closeVPN(1)
 
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+
 	if res["fnc"] == "closeXRouteVPNBack" {
-		return "fail", nil
+		return "success", nil
 	}
-	return "success", nil
-	return "success", nil
+	return "fail", nil
 }
 
 /**
