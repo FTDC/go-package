@@ -54,13 +54,30 @@ func (VersionPlugin) InitPlugin(messenger plugin.BinaryMessenger) error {
 // 初始化VPN
 func initVpnFunc(arguments interface{}) (reply interface{}, err error) {
 
-	argsMap := arguments.(map[interface{}]interface{})
+	//backMsg := jsonToMap(arguments.(string))
+	str2 := arguments.(string)
 
-	url := argsMap["routeList"].(string)
+	fmt.Println(str2)
 
+	m := make(map[string]interface{})
+	//m2 := make(map[string]interface{})
+	json.Unmarshal([]byte(str2), &m)
+
+	fmt.Println("----- ssss    ----")
+	fmt.Println(m["type"])
+
+	data := m["routeList"].(map[string]interface{})
+
+	//datas := json.Unmarshal([]byte(str2), &m2)
+
+	//fmt.Println(data)
+	fmt.Println(data["pc_d2o"])
+
+	url := data["pc_d2o"]
+	//
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@  url @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	fmt.Println(url)
-
+	//fmt.Println(url)
+	//
 	cmd := exec.Command("XRoute.exe", "")
 	err = cmd.Start()
 	if err != nil {
