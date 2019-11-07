@@ -9,6 +9,9 @@ import (
 	"gopkg.in/natefinch/npipe.v2"
 	"net"
 	"os/exec"
+	"reflect"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -57,26 +60,30 @@ func initVpnFunc(arguments interface{}) (reply interface{}, err error) {
 	//backMsg := jsonToMap(arguments.(string))
 	str2 := arguments.(string)
 
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  INIT  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	fmt.Println(str2)
+
+	//fmt.Println(str2)
 
 	m := make(map[string]interface{})
 	//m2 := make(map[string]interface{})
 	json.Unmarshal([]byte(str2), &m)
 
-	fmt.Println("----- ssss    ----")
-	fmt.Println(m["type"])
+	//fmt.Println("----- ssss    ----")
+	//fmt.Println(m["type"])
 
 	data := m["routeList"].(map[string]interface{})
 
 	//datas := json.Unmarshal([]byte(str2), &m2)
 
 	//fmt.Println(data)
-	fmt.Println(data["pc_d2o"])
+	//fmt.Println(data["pc_d2o"])
 
 	url := data["pc_d2o"]
 	//
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@@@  url @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	//fmt.Println("@@@@@@@@@@@@@@@@@@@@@@  url @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	//fmt.Println(url)
+	//fmt.Println(url.(string))
 	//
 	cmd := exec.Command("XRoute.exe", "")
 	err = cmd.Start()
@@ -101,24 +108,50 @@ func startXrouteFunc() (reply interface{}, err error) {
 
 // 链接 VPN
 func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
-	res := connectVpnServer(1, "aes-256-cfb", "58Ssd2nn95", "120.79.96.245", "8101", "0|0|test34qcPxEJcrE4xVLa41J5")
+
+	str2 := arguments.(string)
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	fmt.Println(str2)
+
+	m := make(map[string]interface{})
+	json.Unmarshal([]byte(str2), &m)
+
+	//routeList := m["routeList"].(map[string]interface{})
+	content := m["content"].(map[string]interface{})
+
+	//res := connectVpnServer(1, "aes-256-cfb", "58Ssd2nn95", "120.79.96.245", "8101", "0|0|test34qcPxEJcrE4xVLa41J5")
+	res := connectVpnServer(m["type"], content["encrypt_method"], content["password"], content["url"], content["port"], content["proxy_session_token"], content["user_id"], content["proxy_session_id"])
 
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	fmt.Println(res["fnc"])
 	if res["fnc"] == "startXRouteVPNBack" {
 		return "success", nil
 	}
+
+	if res["fnc"] == "startPoliceVPNBack" {
+		return "success", nil
+	}
+
 	return "fail", nil
 
 }
 
 // 关闭VPN
 func closeConnectFunc(arguments interface{}) (reply interface{}, err error) {
+
+	str2 := arguments.(string)
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	fmt.Println(str2)
+
 	res := closeVPN(1)
 
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-
+	fmt.Println(res["fnc"])
 	if res["fnc"] == "closeXRouteVPNBack" {
+		return "success", nil
+	}
+
+	if res["fnc"] == "closePoliceVPNBack" {
 		return "success", nil
 	}
 	return "fail", nil
@@ -165,7 +198,7 @@ func getVersionFunc(arguments interface{}) (reply interface{}, err error) {
 	return "0.0.1", nil
 }
 
-func initVPN(pacUrl string) (reply string, err error) {
+func initVPN(pacUrl interface{}) (reply string, err error) {
 
 	// 设置 初始化命令
 	command := &Command{}
@@ -230,7 +263,13 @@ func initVPN(pacUrl string) (reply string, err error) {
 }
 
 // 链接vpn 服务器
-func connectVpnServer(connectType int, valueStr string, passwordStr string, urlStr string, portStr string, tokenStr string) map[string]interface{} {
+func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr interface{}, urlStr interface{}, portStr interface{}, tokenStr interface{}, userId interface{}, sessionId interface{}) map[string]interface{} {
+
+	fmt.Println("########################################################")
+	print(userId)
+
+	fmt.Println(userId)
+	fmt.Println(sessionId)
 
 	command := &Command{}
 	if connectType == 1 {
@@ -256,7 +295,12 @@ func connectVpnServer(connectType int, valueStr string, passwordStr string, urlS
 	command.Parames = append(command.Parames, port)
 
 	token := make(map[string]interface{})
-	token["value"] = tokenStr
+	sessionIdStr := strconv.FormatFloat(sessionId.(float64), 'f', -1, 32)
+	fmt.Println("v1 type:", reflect.TypeOf(userId))
+	userIdStr := strconv.FormatFloat(userId.(float64), 'f', -1, 64)
+
+	gg := strings.Join([]string{userIdStr, sessionIdStr, tokenStr.(string)}, "|")
+	token["value"] = gg
 	command.Parames = append(command.Parames, token)
 
 	connectJson, _ := json.Marshal(command)
