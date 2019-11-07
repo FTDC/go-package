@@ -7,7 +7,6 @@ import (
 	"github.com/go-flutter-desktop/go-flutter"
 	"github.com/go-flutter-desktop/go-flutter/plugin"
 	"gopkg.in/natefinch/npipe.v2"
-	"net"
 	"os/exec"
 	"reflect"
 	"strconv"
@@ -32,8 +31,11 @@ type Command struct {
 }
 
 var _ flutter.Plugin = &VersionPlugin{}
-var ln, _ = npipe.Listen(`\\.\pipe\VPNMainWindow`)
-var mapConn net.Conn // 链接句柄
+var mapConn, _ = npipe.Dial(`\\.\pipe\VPNMainWindow`)
+
+//var ln, _ = npipe.Listen(`\\.\pipe\VPNMainWindow`)
+
+//var mapConn net.Conn // 链接句柄
 
 //  类型
 //  1  全局线路  2 智能线路
@@ -85,11 +87,11 @@ func initVpnFunc(arguments interface{}) (reply interface{}, err error) {
 	//fmt.Println(url)
 	//fmt.Println(url.(string))
 	//
-	cmd := exec.Command("XRoute.exe", "")
-	err = cmd.Start()
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	//cmd := exec.Command("XRoute.exe", "")
+	//err = cmd.Start()
+	//if err != nil {
+	//	fmt.Println(err.Error())
+	//}
 
 	go initVPN(url)
 
@@ -120,7 +122,7 @@ func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 	content := m["content"].(map[string]interface{})
 
 	//res := connectVpnServer(1, "aes-256-cfb", "58Ssd2nn95", "120.79.96.245", "8101", "0|0|test34qcPxEJcrE4xVLa41J5")
-	res := connectVpnServer(m["type"], content["encrypt_method"], content["password"], content["url"], content["port"], content["proxy_session_token"], content["user_id"], content["proxy_session_id"])
+	res := connectVpnServer(content["proxy_type"], content["encrypt_method"], content["password"], content["url"], content["port"], content["proxy_session_token"], content["user_id"], content["proxy_session_id"])
 
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	fmt.Println(res["fnc"])
@@ -140,12 +142,17 @@ func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 func closeConnectFunc(arguments interface{}) (reply interface{}, err error) {
 
 	str2 := arguments.(string)
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  close  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	fmt.Println(str2)
 
-	res := closeVPN(1)
+	m := make(map[string]interface{})
+	json.Unmarshal([]byte(str2), &m)
 
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	content := m["content"].(map[string]interface{})
+
+	res := closeVPN(content["proxy_type"].(bool))
+
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  close  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	fmt.Println(res["fnc"])
 	if res["fnc"] == "closeXRouteVPNBack" {
 		return "success", nil
@@ -214,65 +221,96 @@ func initVPN(pacUrl interface{}) (reply string, err error) {
 	command.Parames = append(command.Parames, pac)
 	pacStr, _ := json.Marshal(command)
 
-	for {
-		mapConn, _ = ln.Accept()
-		if err != nil {
-			// handle error
-			continue
-		}
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  mapconn  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	fmt.Println(mapConn)
 
-		// handle connection like any other net.Conn
-		go func(conn net.Conn) {
-			//defer conn.Close()
-
-			fmt.Println("--------------------   step   -------------------------")
-			fmt.Fprintln(conn, string(initStr))
-
-			r := bufio.NewReader(conn)
-			msg, err := r.ReadString('}')
-			if err != nil {
-				// handle error
-				return
-			}
-			fmt.Println(msg)
-
-			backMsg := jsonToMap(msg)
-
-			fmt.Println(backMsg)
-			if backMsg["fnc"] == "initBack" {
-				//mapConn["aa"] = conn
-				fmt.Println("init back")
-
-				// 设置pac
-				if _, err := fmt.Fprintln(conn, string(pacStr)); err != nil {
-					// handle error
-				}
-
-				r := bufio.NewReader(conn)
-				msg, err := r.ReadString('}')
-				if err != nil {
-					// handle error
-					return
-				}
-				fmt.Println(msg)
-			}
-		}(mapConn)
+	// 设置init
+	if _, err := fmt.Fprintln(mapConn, string(initStr)); err != nil {
+		// handle error
+		fmt.Println(err)
 	}
 
+	r := bufio.NewReader(mapConn)
+	fmt.Println(r)
+	msg, err := r.ReadString('}')
+	if err != nil {
+		// handle eror
+	}
+	fmt.Println(msg)
+
+	backMsg := jsonToMap(msg)
+
+	fmt.Println(backMsg)
+	if backMsg["fnc"] == "initBack" {
+		//mapConn["aa"] = conn
+		fmt.Println("init back")
+
+		// 设置pac
+		if _, err := fmt.Fprintln(mapConn, string(pacStr)); err != nil {
+			// handle error
+		}
+
+		r := bufio.NewReader(mapConn)
+		msg, err := r.ReadString('}')
+		if err != nil {
+			// handle error
+			//return
+		}
+		fmt.Println(msg)
+	}
+
+	// handle connection like any other net.Conn
+	//go func(mapConn net.Conn) {
+	//	//defer conn.Close()
+	//
+	//	fmt.Println("--------------------   step   -------------------------")
+	//	fmt.Fprintln(mapConn, string(initStr))
+	//
+	//	r := bufio.NewReader(mapConn)
+	//	msg, err := r.ReadString('}')
+	//	if err != nil {
+	//		// handle error
+	//		return
+	//	}
+	//	fmt.Println(msg)
+	//
+	//	backMsg := jsonToMap(msg)
+	//
+	//	fmt.Println(backMsg)
+	//	if backMsg["fnc"] == "initBack" {
+	//		//mapConn["aa"] = conn
+	//		fmt.Println("init back")
+	//
+	//		// 设置pac
+	//		if _, err := fmt.Fprintln(mapConn, string(pacStr)); err != nil {
+	//			// handle error
+	//		}
+	//
+	//		r := bufio.NewReader(mapConn)
+	//		msg, err := r.ReadString('}')
+	//		if err != nil {
+	//			// handle error
+	//			return
+	//		}
+	//		fmt.Println(msg)
+	//	}
+	//}(mapConn)
+
 	//fmt.Println(string(data))
+
+	return "success", nil
 }
 
 // 链接vpn 服务器
 func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr interface{}, urlStr interface{}, portStr interface{}, tokenStr interface{}, userId interface{}, sessionId interface{}) map[string]interface{} {
 
 	fmt.Println("########################################################")
-	print(userId)
 
 	fmt.Println(userId)
 	fmt.Println(sessionId)
 
 	command := &Command{}
-	if connectType == 1 {
+	if connectType.(bool) {
 		command.Fnc = "startXRouteVPN"
 	} else {
 		command.Fnc = "startPoliceVPN"
@@ -322,11 +360,14 @@ func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr
 	return backMsg
 }
 
-func closeVPN(connectType int) map[string]interface{} {
+func closeVPN(connectType bool) map[string]interface{} {
+
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  close  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	fmt.Println(connectType)
 
 	command := &Command{}
 	var commandName string
-	if connectType == 1 {
+	if connectType {
 		commandName = "closeXRouteVPN"
 	} else {
 		commandName = "closePoliceVPN"
