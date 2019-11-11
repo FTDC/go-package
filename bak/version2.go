@@ -1,4 +1,4 @@
-package version
+package bak
 
 import (
 	"bufio"
@@ -32,9 +32,11 @@ type Command struct {
 }
 
 var _ flutter.Plugin = &VersionPlugin{}
+var listenConn net.Conn
 
-var ln, _ = npipe.Listen(`\\.\pipe\VPNMainWindow`)
-var mapConn net.Conn // 链接句柄
+//var ln, _ = npipe.Listen(`\\.\pipe\VPNMainWindow`)
+
+//var mapConn net.Conn // 链接句柄
 
 //  类型
 //  1  全局线路  2 智能线路
@@ -64,7 +66,10 @@ func initVpnFunc(arguments interface{}) (reply interface{}, err error) {
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@  INIT  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	fmt.Println(str2)
 
+	//fmt.Println(str2)
+
 	m := make(map[string]interface{})
+	//m2 := make(map[string]interface{})
 	json.Unmarshal([]byte(str2), &m)
 
 	//fmt.Println("----- ssss    ----")
@@ -74,103 +79,22 @@ func initVpnFunc(arguments interface{}) (reply interface{}, err error) {
 
 	//datas := json.Unmarshal([]byte(str2), &m2)
 
+	//fmt.Println(data)
+	//fmt.Println(data["pc_d2o"])
+
 	url := data["pc_d2o"]
+	//
 	//fmt.Println("@@@@@@@@@@@@@@@@@@@@@@  url @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	//fmt.Println(url)
 	//fmt.Println(url.(string))
 	//
-	cmd := exec.Command("XRoute.exe", "")
-	err = cmd.Start()
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	//cmd := exec.Command("XRoute.exe", "")
+	//err = cmd.Start()
+	//if err != nil {
+	//	fmt.Println(err.Error())
+	//}
 
-	// 设置 初始化命令
-	command := &Command{}
-	command.Fnc = "init"
-	command.Parames = []map[string]interface{}{}
-	initStr, _ := json.Marshal(command)
-	fmt.Println(string(initStr))
-
-	// 设置 PAC 命令
-	command.Fnc = "setPacUrl"
-	pac := make(map[string]interface{})
-	pac["value"] = url
-	command.Parames = append(command.Parames, pac)
-	pacStr, _ := json.Marshal(command)
-
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@  mapconn  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-
-	for {
-
-		//  创建连接
-		mapConn, err = ln.Accept()
-		fmt.Println(mapConn)
-		if err != nil {
-			// handle error
-		}
-
-		// handle connection like any other net.Conn
-		go func(conn net.Conn) interface{} {
-
-			r := bufio.NewReader(conn)
-			msg, err := r.ReadString('}')
-
-			fmt.Println("==============    recive content       ======================")
-			fmt.Println(msg)
-
-			// 设置init
-			if _, err := fmt.Fprintln(conn, string(initStr)); err != nil {
-				// handle error
-				fmt.Println(err)
-			}
-
-			r = bufio.NewReader(conn)
-			fmt.Println(r)
-			msg, err = r.ReadString('}')
-			if err != nil {
-				// handle eror
-			}
-			fmt.Println(msg)
-
-			backMsg := jsonToMap(msg)
-
-			fmt.Println("==============    recive content       ======================")
-			fmt.Println(backMsg)
-
-			if backMsg["fnc"] == "initBack" {
-				//mapConn["aa"] = conn
-				fmt.Println("init back")
-
-				// 设置pac
-				if _, err := fmt.Fprintln(conn, string(pacStr)); err != nil {
-					// handle error
-				}
-
-				r := bufio.NewReader(conn)
-				fmt.Println("==============    recive content       ======================")
-				msg, err := r.ReadString('}')
-				if err != nil {
-					// handle error
-					//return
-				}
-				fmt.Println(msg)
-			}
-
-			return backMsg
-
-			//r = bufio.NewReader(mapConn)
-			//msg, err = r.ReadString('}')
-			//if err != nil {
-			//	// handle error
-			//	return
-			//}
-			//fmt.Println(msg)
-
-		}(mapConn)
-	}
-
-	//go initVPN(url)
+	go initVPN(url)
 
 	return "success", nil
 }
@@ -189,8 +113,8 @@ func startXrouteFunc() (reply interface{}, err error) {
 func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 
 	str2 := arguments.(string)
-	//fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	//fmt.Println(str2)
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	fmt.Println(str2)
 
 	m := make(map[string]interface{})
 	json.Unmarshal([]byte(str2), &m)
@@ -202,7 +126,6 @@ func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 	res := connectVpnServer(content["proxy_type"], content["encrypt_method"], content["password"], content["url"], content["port"], content["proxy_session_token"], content["user_id"], content["proxy_session_id"])
 
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	fmt.Println(res)
 	fmt.Println(res["fnc"])
 
 	//defer startListen()
@@ -288,9 +211,112 @@ func getVersionFunc(arguments interface{}) (reply interface{}, err error) {
 	return "0.0.1", nil
 }
 
+func initVPN(pacUrl interface{}) (reply string, err error) {
+
+	mapConn, _ := npipe.Dial(`\\.\pipe\VPNMainWindow`)
+
+	// 设置 初始化命令
+	command := &Command{}
+	command.Fnc = "init"
+	command.Parames = []map[string]interface{}{}
+	initStr, _ := json.Marshal(command)
+	fmt.Println(string(initStr))
+
+	// 设置 PAC 命令
+	command.Fnc = "setPacUrl"
+	pac := make(map[string]interface{})
+	pac["value"] = pacUrl
+	command.Parames = append(command.Parames, pac)
+	pacStr, _ := json.Marshal(command)
+
+	fmt.Println("@@@@@@@@@@@@@@@@@@@@  mapconn  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+	fmt.Println(mapConn)
+
+	// 设置init
+	if _, err := fmt.Fprintln(mapConn, string(initStr)); err != nil {
+		// handle error
+		fmt.Println(err)
+	}
+
+	r := bufio.NewReader(mapConn)
+	fmt.Println(r)
+	msg, err := r.ReadString('}')
+	if err != nil {
+		// handle eror
+	}
+	fmt.Println(msg)
+
+	backMsg := jsonToMap(msg)
+
+	fmt.Println(backMsg)
+	if backMsg["fnc"] == "initBack" {
+		//mapConn["aa"] = conn
+		fmt.Println("init back")
+
+		// 设置pac
+		if _, err := fmt.Fprintln(mapConn, string(pacStr)); err != nil {
+			// handle error
+		}
+
+		r := bufio.NewReader(mapConn)
+		msg, err := r.ReadString('}')
+		if err != nil {
+			// handle error
+			//return
+		}
+		fmt.Println(msg)
+	}
+
+	defer mapConn.Close()
+
+	startListen()
+
+	// handle connection like any other net.Conn
+	//go func(mapConn net.Conn) {
+	//	//defer conn.Close()
+	//
+	//	fmt.Println("--------------------   step   -------------------------")
+	//	fmt.Fprintln(mapConn, string(initStr))
+	//
+	//	r := bufio.NewReader(mapConn)
+	//	msg, err := r.ReadString('}')
+	//	if err != nil {
+	//		// handle error
+	//		return
+	//	}
+	//	fmt.Println(msg)
+	//
+	//	backMsg := jsonToMap(msg)
+	//
+	//	fmt.Println(backMsg)
+	//	if backMsg["fnc"] == "initBack" {
+	//		//mapConn["aa"] = conn
+	//		fmt.Println("init back")
+	//
+	//		// 设置pac
+	//		if _, err := fmt.Fprintln(mapConn, string(pacStr)); err != nil {
+	//			// handle error
+	//		}
+	//
+	//		r := bufio.NewReader(mapConn)
+	//		msg, err := r.ReadString('}')
+	//		if err != nil {
+	//			// handle error
+	//			return
+	//		}
+	//		fmt.Println(msg)
+	//	}
+	//}(mapConn)
+
+	//fmt.Println(string(data))
+
+	return "success", nil
+}
+
 // 链接vpn 服务器
 func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr interface{}, urlStr interface{}, portStr interface{}, tokenStr interface{}, userId interface{}, sessionId interface{}) map[string]interface{} {
 
+	mapConn, _ := npipe.Dial(`\\.\pipe\VPNMainWindow`)
 	fmt.Println("########################################################")
 
 	fmt.Println(userId)
@@ -324,37 +350,60 @@ func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr
 	fmt.Println("v1 type:", reflect.TypeOf(userId))
 	userIdStr := strconv.FormatFloat(userId.(float64), 'f', -1, 64)
 
-	tokeStr := strings.Join([]string{userIdStr, sessionIdStr, tokenStr.(string)}, "|")
-	token["value"] = tokeStr
+	gg := strings.Join([]string{userIdStr, sessionIdStr, tokenStr.(string)}, "|")
+	token["value"] = gg
 	command.Parames = append(command.Parames, token)
 
 	connectJson, _ := json.Marshal(command)
 	fmt.Println(string(connectJson))
 	fmt.Println("send command function")
 
-	fmt.Println(mapConn)
-
 	if _, err := fmt.Fprintln(mapConn, string(connectJson)); err != nil {
 		// handle error
 		fmt.Printf("Error: The command can not be conn2: %s\n", err)
 	}
-
 	r := bufio.NewReader(mapConn)
 	msg, err := r.ReadString('}')
-	fmt.Println(msg)
 	if err != nil {
 		// handle eror
 		fmt.Printf("Error: The command can not be startup333: %s\n", err)
 	}
 
 	backMsg := jsonToMap(msg)
-
-	fmt.Println(backMsg)
+	defer mapConn.Close()
 	return backMsg
+}
+
+func startListen() string {
+
+	fmt.Println("-------------start listen ----")
+	mapConn, _ := npipe.Dial(`\\.\pipe\VPNMainWindow`)
+
+	for {
+		// handle connection like any other net.Conn
+		go func(mapConn net.Conn) {
+			r := bufio.NewReader(mapConn)
+			msg, err := r.ReadString('}')
+			if err != nil {
+				// handle error
+				return
+			}
+
+			fmt.Println(msg)
+			fmt.Println("-------------content listen ----")
+
+		}(mapConn)
+	}
+}
+
+func closeListen() {
+	fmt.Println("-------------end listen ----")
+	listenConn.Close()
 }
 
 func closeVPN(connectType bool) map[string]interface{} {
 
+	mapConn, _ := npipe.Dial(`\\.\pipe\VPNMainWindow`)
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@  close  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	fmt.Println(connectType)
 
@@ -385,6 +434,7 @@ func closeVPN(connectType bool) map[string]interface{} {
 
 	backMsg := jsonToMap(msg)
 
+	defer mapConn.Close()
 	return backMsg
 
 }
