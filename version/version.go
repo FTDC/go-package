@@ -19,6 +19,7 @@ const (
 	getVersion   = "getVersion"
 	openUrl      = "openUrl"
 	initVpn      = "initVpn"
+	startListen  = "startListen"
 	connectVpn   = "connectVpn"
 	closeConnect = "closeConnect"
 )
@@ -35,6 +36,8 @@ type Command struct {
 var _ flutter.Plugin = &VersionPlugin{}
 
 var ln, _ = npipe.Listen(`\\.\pipe\VPNMainWindow`)
+
+//var writeLn, _ = npipe.Dial(`\\.\pipe\VPNMainWindow`)
 var mapConn net.Conn // 链接句柄
 
 //  类型
@@ -50,42 +53,15 @@ func (p *VersionPlugin) InitPlugin(messenger plugin.BinaryMessenger) error {
 	p.channel.HandleFunc(getVersion, getVersionFunc)
 	p.channel.HandleFunc(openUrl, openUrlFunc)
 	p.channel.HandleFunc(initVpn, p.initVpnFunc)
+	p.channel.HandleFunc(startListen, p.startListenFunc)
 	p.channel.HandleFunc(connectVpn, ConnectVpnFunc)
 	p.channel.HandleFunc(closeConnect, closeConnectFunc)
-
-	//channel := plugin.NewMethodChannel(messenger, "samples/demo", plugin.StandardMethodCodec{})
-	//reply, _ := channel.InvokeMethodWithReply("test", nil) // blocks the goroutine until reply is avaiable
-	// error handling..
-	//spew.Dump(reply) // print
-
-	//err := p.channel.InvokeMethod("test", nil)
 
 	return nil
 }
 
 // 初始化VPN
-func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, err error) {
-
-	//backMsg := jsonToMap(arguments.(string))
-	str2 := arguments.(string)
-	m := make(map[string]interface{})
-	json.Unmarshal([]byte(str2), &m)
-
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@  INIT  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	fmt.Println(str2)
-
-	data := m["routeList"].(map[string]interface{})
-
-	//datas := json.Unmarshal([]byte(str2), &m2)
-
-	url := data["pc_d2o"]
-
-	//p.channel.InvokeMethod("test", nil)
-
-	//fmt.Println("@@@@@@@@@@@@@@@@@@@@@@  url @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	//fmt.Println(url)
-	//fmt.Println(url.(string))
-	//
+func (p *VersionPlugin) startListenFunc(arguments interface{}) (reply interface{}, err error) {
 
 	cmd := exec.Command("XRoute.exe", "")
 	err = cmd.Start()
@@ -93,7 +69,22 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 		fmt.Println(err.Error())
 	}
 
-	initVPN(p, url)
+	go initVPN(p)
+
+	return "success", nil
+}
+
+func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, err error) {
+
+	//backMsg := jsonToMap(arguments.(string))
+	str2 := arguments.(string)
+	m := make(map[string]interface{})
+	json.Unmarshal([]byte(str2), &m)
+
+	data := m["routeList"].(map[string]interface{})
+
+	url := data["pc_d2o"]
+	fmt.Println(url)
 
 	command := &Command{}
 	command.Fnc = "init"
@@ -117,49 +108,41 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 	// 设置 Pac
 	if _, err := fmt.Fprintln(mapConn, string(pacStr)); err != nil {
 		// handle error
+		fmt.Println(err)
 	}
 
 	return "success", nil
 }
 
-func initVPN(p *VersionPlugin, url interface{}) (reply interface{}, err error) {
-	// 设置 初始化命令
-
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@  mapconn  RES  init  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	p.channel.InvokeMethod("init Method", nil)
-
+func initVPN(p *VersionPlugin) (err error) {
 	//  创建守护进程
+	mapConn, _ = ln.Accept()
+	if err != nil {
+		// handle error
+		fmt.Println(err)
+		//continue
+	}
+
 	for {
-		//  创建连接
-		mapConn, err = ln.Accept()
+		// handle connection like any other net.Conn
+		//go func(conn net.Conn) {
+		r := bufio.NewReader(mapConn)
+		msg, err := r.ReadString('}')
 		if err != nil {
 			// handle error
 		}
-
-		// handle connection like any other net.Conn
-		go func(p *VersionPlugin, conn net.Conn) {
-			r := bufio.NewReader(conn)
-			msg, _ := r.ReadString('}')
-
-			p.channel.InvokeMethod(" recive message : "+msg, nil)
-			fmt.Println("==============    recive content       ======================")
-			fmt.Println(msg)
-
-		}(p, mapConn)
+		if msg != "" {
+			//go p.channel.InvokeMethod(backMsg["fnc"].(string), nil)
+			go p.channel.InvokeMethod(msg, nil)
+		}
+		//}(mapConn)
 	}
 
-	//fmt.Println(ln)
-
-	return "success", nil
 }
 
 // 链接 VPN
 func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
-
 	str2 := arguments.(string)
-	//fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	//fmt.Println(str2)
-
 	m := make(map[string]interface{})
 	json.Unmarshal([]byte(str2), &m)
 
@@ -168,27 +151,17 @@ func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 
 	//res := connectVpnServer(1, "aes-256-cfb", "58Ssd2nn95", "120.79.96.245", "8101", "0|0|test34qcPxEJcrE4xVLa41J5")
 	connectVpnServer(content["proxy_type"], content["encrypt_method"], content["password"], content["url"], content["port"], content["proxy_session_token"], content["user_id"], content["proxy_session_id"])
-
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	//fmt.Println(res["fnc"])
-
-	return "fail", nil
+	return "success", nil
 
 }
 
 // 关闭VPN
 func closeConnectFunc(arguments interface{}) (reply interface{}, err error) {
-
 	str2 := arguments.(string)
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@  close  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	fmt.Println(str2)
-
 	m := make(map[string]interface{})
 	json.Unmarshal([]byte(str2), &m)
 
 	content := m["content"].(map[string]interface{})
-
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@  close  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	closeVPN(content["proxy_type"].(bool))
 
 	return "success", nil
@@ -254,10 +227,6 @@ func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr
 
 	connectJson, _ := json.Marshal(command)
 
-	fmt.Println(string(connectJson))
-	fmt.Println("send command function")
-	//fmt.Println(mapConn)
-
 	if _, err := fmt.Fprintln(mapConn, string(connectJson)); err != nil {
 		// handle error
 		fmt.Printf("Error: The command can not be conn2: %s\n", err)
@@ -266,8 +235,6 @@ func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr
 }
 
 func closeVPN(connectType bool) {
-
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@  close  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	fmt.Println(connectType)
 
 	command := &Command{}

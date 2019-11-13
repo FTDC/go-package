@@ -95,12 +95,11 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 
 	initVPN(p, url)
 
-
-		// 设置init
-		if _, err := fmt.Fprintln(conn, string(initStr)); err != nil {
-			// handle error
-			fmt.Println(err)
-		}
+	// 设置init
+	if _, err := fmt.Fprintln(conn, string(initStr)); err != nil {
+		// handle error
+		fmt.Println(err)
+	}
 	package version
 
 	import (
@@ -148,7 +147,8 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 	//  3 发送初始化消息
 	//  4 设置 PAC 地址
 
-	func (p *VersionPlugin) InitPlugin(messenger plugin.BinaryMessenger) error {
+	func(p *VersionPlugin) InitPlugin(messenger
+	plugin.BinaryMessenger) error{
 		p.channel = plugin.NewMethodChannel(messenger, channelName, plugin.StandardMethodCodec{})
 		p.channel.HandleFunc(getVersion, getVersionFunc)
 		p.channel.HandleFunc(openUrl, openUrlFunc)
@@ -167,41 +167,41 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 	}
 
 	// 初始化VPN
-	func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, err error) {
+	func(p *VersionPlugin) initVpnFunc(arguments interface {}) (reply interface{}, err error) {
 
-	//backMsg := jsonToMap(arguments.(string))
-	str2 := arguments.(string)
-	m := make(map[string]interface{})
-	json.Unmarshal([]byte(str2), &m)
+//backMsg := jsonToMap(arguments.(string))
+str2 := arguments.(string)
+m := make(map[string]interface{})
+json.Unmarshal([]byte(str2), &m)
 
-	fmt.Println("@@@@@@@@@@@@@@@@@@@@  INIT  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	fmt.Println(str2)
+fmt.Println("@@@@@@@@@@@@@@@@@@@@  INIT  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+fmt.Println(str2)
 
-	data := m["routeList"].(map[string]interface{})
+data := m["routeList"].(map[string]interface{})
 
-	//datas := json.Unmarshal([]byte(str2), &m2)
+//datas := json.Unmarshal([]byte(str2), &m2)
 
-	url := data["pc_d2o"]
+url := data["pc_d2o"]
 
-	//p.channel.InvokeMethod("test", nil)
+//p.channel.InvokeMethod("test", nil)
 
-	//fmt.Println("@@@@@@@@@@@@@@@@@@@@@@  url @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-	//fmt.Println(url)
-	//fmt.Println(url.(string))
-	//
+//fmt.Println("@@@@@@@@@@@@@@@@@@@@@@  url @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+//fmt.Println(url)
+//fmt.Println(url.(string))
+//
 
-	cmd := exec.Command("XRoute.exe", "")
-	err = cmd.Start()
-	if err != nil {
-	fmt.Println(err.Error())
-	}
+cmd := exec.Command("XRoute.exe", "")
+err = cmd.Start()
+if err != nil {
+fmt.Println(err.Error())
+}
 
-	initVPN(p, url)
+initVPN(p, url)
 
-	return "success", nil
-	}
+return "success", nil
+}
 
-	func initVPN(p *VersionPlugin, url interface{}) (reply interface{}, err error) {
+func initVPN(p *VersionPlugin, url interface{}) (reply interface{}, err error) {
 	// 设置 初始化命令
 	command := &Command{}
 	command.Fnc = "init"
@@ -219,87 +219,85 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@  mapconn  RES  init  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	p.channel.InvokeMethod("init Method", nil)
 
-
-
 	//  创建守护进程
 	for {
-	//  创建连接
-	mapConn, err = ln.Accept()
-	if err != nil {
-	// handle error
-	}
+		//  创建连接
+		mapConn, err = ln.Accept()
+		if err != nil {
+			// handle error
+		}
 
-	// handle connection like any other net.Conn
-	go func(p *VersionPlugin, conn net.Conn) {
+		// handle connection like any other net.Conn
+		go func(p *VersionPlugin, conn net.Conn) {
 
-	r := bufio.NewReader(conn)
-	msg, err := r.ReadString('}')
+			r := bufio.NewReader(conn)
+			msg, err := r.ReadString('}')
 
-	p.channel.InvokeMethod(" recive message : "+msg, nil)
-	fmt.Println("==============    recive content       ======================")
-	fmt.Println(msg)
+			p.channel.InvokeMethod(" recive message : "+msg, nil)
+			fmt.Println("==============    recive content       ======================")
+			fmt.Println(msg)
 
-	if msg == "" {
-	// 设置init
-	if _, err := fmt.Fprintln(conn, string(initStr)); err != nil {
-	// handle error
-	fmt.Println(err)
-	}
+			if msg == "" {
+				// 设置init
+				if _, err := fmt.Fprintln(conn, string(initStr)); err != nil {
+					// handle error
+					fmt.Println(err)
+				}
 
-	r = bufio.NewReader(conn)
-	fmt.Println(r)
-	msg, err = r.ReadString('}')
-	if err != nil {
-	// handle eror
-	}
-	fmt.Println(msg)
-	backMsg := jsonToMap(msg)
+				r = bufio.NewReader(conn)
+				fmt.Println(r)
+				msg, err = r.ReadString('}')
+				if err != nil {
+					// handle eror
+				}
+				fmt.Println(msg)
+				backMsg := jsonToMap(msg)
 
-	fmt.Println("==============    recive content       ======================")
-	fmt.Println(backMsg)
+				fmt.Println("==============    recive content       ======================")
+				fmt.Println(backMsg)
 
-	if backMsg["fnc"] == "initBack" {
-	//mapConn["aa"] = conn
-	fmt.Println("init back")
+				if backMsg["fnc"] == "initBack" {
+					//mapConn["aa"] = conn
+					fmt.Println("init back")
 
-	// 设置pac
-	if _, err := fmt.Fprintln(conn, string(pacStr)); err != nil {
-	// handle error
-	}
+					// 设置pac
+					if _, err := fmt.Fprintln(conn, string(pacStr)); err != nil {
+						// handle error
+					}
 
-	r := bufio.NewReader(conn)
-	fmt.Println("==============    recive content       ======================")
-	msg, err := r.ReadString('}')
-	if err != nil {
-	// handle error
-	//return
-	}
-	//print(msg)
-	p.channel.InvokeMethod(msg, nil)
-	}
+					r := bufio.NewReader(conn)
+					fmt.Println("==============    recive content       ======================")
+					msg, err := r.ReadString('}')
+					if err != nil {
+						// handle error
+						//return
+					}
+					//print(msg)
+					p.channel.InvokeMethod(msg, nil)
+				}
 
-	} else {
-	p.channel.InvokeMethod(msg, nil)
-	}
+			} else {
+				p.channel.InvokeMethod(msg, nil)
+			}
 
-	//r = bufio.NewReader(mapConn)
-	//msg, err = r.ReadString('}')
-	//if err != nil {
-	//	// handle error
-	//	return
-	//}
-	//fmt.Println(msg)
+			//r = bufio.NewReader(mapConn)
+			//msg, err = r.ReadString('}')
+			//if err != nil {
+			//	// handle error
+			//	return
+			//}
+			//fmt.Println(msg)
 
-	}(p, mapConn)
+		}(p, mapConn)
 	}
 
 	//fmt.Println(ln)
 
 	return "success", nil
-	}
+}
 
-	// 链接 VPN
-	func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
+// 链接 VPN
+func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 
 	str2 := arguments.(string)
 	//fmt.Println("@@@@@@@@@@@@@@@@@@@@  connect  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
@@ -330,10 +328,10 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 
 	return "fail", nil
 
-	}
+}
 
-	// 关闭VPN
-	func closeConnectFunc(arguments interface{}) (reply interface{}, err error) {
+// 关闭VPN
+func closeConnectFunc(arguments interface{}) (reply interface{}, err error) {
 
 	str2 := arguments.(string)
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@  close  PARAM @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
@@ -348,12 +346,12 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 	closeVPN(content["proxy_type"].(bool))
 
 	return "success", nil
-	}
+}
 
-	/**
-	 *  打开系统浏览器，并跳转到指定网页中
-	 */
-	func openUrlFunc(arguments interface{}) (reply interface{}, err error) {
+/**
+ *  打开系统浏览器，并跳转到指定网页中
+ */
+func openUrlFunc(arguments interface{}) (reply interface{}, err error) {
 
 	argsMap := arguments.(map[interface{}]interface{})
 
@@ -363,18 +361,18 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 	//cmd := exec.Command("XRoute.exe", "")
 	err = cmd.Start()
 	if err != nil {
-	fmt.Println(err.Error())
+		fmt.Println(err.Error())
 	}
 
 	return url, nil
-	}
+}
 
-	func getVersionFunc(arguments interface{}) (reply interface{}, err error) {
+func getVersionFunc(arguments interface{}) (reply interface{}, err error) {
 	return "0.0.1", nil
-	}
+}
 
-	// 链接vpn 服务器
-	func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr interface{}, urlStr interface{}, portStr interface{}, tokenStr interface{}, userId interface{}, sessionId interface{}) {
+// 链接vpn 服务器
+func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr interface{}, urlStr interface{}, portStr interface{}, tokenStr interface{}, userId interface{}, sessionId interface{}) {
 
 	//fmt.Println("########################################################")
 	//fmt.Println(userId)
@@ -382,9 +380,9 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 
 	command := &Command{}
 	if connectType.(bool) {
-	command.Fnc = "startXRouteVPN"
+		command.Fnc = "startXRouteVPN"
 	} else {
-	command.Fnc = "startPoliceVPN"
+		command.Fnc = "startPoliceVPN"
 	}
 
 	value := make(map[string]interface{})
@@ -419,8 +417,8 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 	//fmt.Println(mapConn)
 
 	if _, err := fmt.Fprintln(mapConn, string(connectJson)); err != nil {
-	// handle error
-	fmt.Printf("Error: The command can not be conn2: %s\n", err)
+		// handle error
+		fmt.Printf("Error: The command can not be conn2: %s\n", err)
 	}
 
 	//r := bufio.NewReader(mapConn)
@@ -435,9 +433,9 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 
 	//fmt.Println(backMsg)
 	//return backMsg
-	}
+}
 
-	func closeVPN(connectType bool) {
+func closeVPN(connectType bool) {
 
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@  close  RES @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	fmt.Println(connectType)
@@ -445,9 +443,9 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 	command := &Command{}
 	var commandName string
 	if connectType {
-	commandName = "closeXRouteVPN"
+		commandName = "closeXRouteVPN"
 	} else {
-	commandName = "closePoliceVPN"
+		commandName = "closePoliceVPN"
 	}
 
 	command.Fnc = commandName
@@ -457,8 +455,8 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 	fmt.Println(string(closeJson))
 
 	if _, err := fmt.Fprintln(mapConn, string(closeJson)); err != nil {
-	// handle error
-	fmt.Printf("Error: The command can not be conn2: %s\n", err)
+		// handle error
+		fmt.Printf("Error: The command can not be conn2: %s\n", err)
 	}
 	//r := bufio.NewReader(mapConn)
 	//msg, err := r.ReadString('}')
@@ -471,26 +469,25 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 
 	//return backMsg
 
-	}
+}
 
-	// json 转换成MAP
-	func jsonToMap(jsonString string) map[string]interface{} {
+// json 转换成MAP
+func jsonToMap(jsonString string) map[string]interface{} {
 	var dat map[string]interface{}
 
 	if err := json.Unmarshal([]byte(jsonString), &dat); err == nil {
-	return dat
+		return dat
 	}
 	return nil
-	}
+}
+
+// 设置pac
+if _, err := fmt.Fprintln(conn, string(pacStr)); err != nil {
+// handle error
+}
 
 
-		// 设置pac
-		if _, err := fmt.Fprintln(conn, string(pacStr)); err != nil {
-			// handle error
-		}
-
-
-	return "success", nil
+return "success", nil
 }
 
 func initVPN(p *VersionPlugin, url interface{}) (reply interface{}, err error) {
@@ -511,8 +508,6 @@ func initVPN(p *VersionPlugin, url interface{}) (reply interface{}, err error) {
 	fmt.Println("@@@@@@@@@@@@@@@@@@@@  mapconn  RES  init  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	p.channel.InvokeMethod("init Method", nil)
 
-
-
 	//  创建守护进程
 	for {
 		//  创建连接
@@ -530,8 +525,6 @@ func initVPN(p *VersionPlugin, url interface{}) (reply interface{}, err error) {
 			p.channel.InvokeMethod(" recive message : "+msg, nil)
 			fmt.Println("==============    recive content       ======================")
 			fmt.Println(msg)
-
-
 
 			//r = bufio.NewReader(mapConn)
 			//msg, err = r.ReadString('}')
