@@ -5,6 +5,7 @@ import (
 	"github.com/go-flutter-desktop/go-flutter"
 	"github.com/go-flutter-desktop/go-flutter/plugin"
 	"net"
+	"os"
 	"strings"
 )
 
@@ -29,12 +30,13 @@ func (DeviceInfoPlugin) InitPlugin(messenger plugin.BinaryMessenger) error {
 func getDeviceInfoFunc(arguments interface{}) (reply interface{}, err error) {
 
 	var macAddrs = getMacAddrs()
-	// var hostName = getHostname()
+	var hostName = getHostname()
 	var ips = getIPs()
 
 	return map[interface{}]interface{}{
 		"macAddrs": strings.Replace(strings.Trim(fmt.Sprint(macAddrs), "[]"), " ", ",", -1),
 		"ips":      strings.Replace(strings.Trim(fmt.Sprint(ips), "[]"), " ", ",", -1),
+		"hostName": hostName,
 	}, nil
 
 	// return strings.Replace(strings.Trim(fmt.Sprint(list), "[]"), " ", ",", -1), nil
@@ -75,6 +77,17 @@ func getIPs() (ips []string) {
 		}
 	}
 	return ips
+}
+
+func getHostname() string {
+	host, err := os.Hostname()
+	if err != nil {
+		fmt.Printf("%s", err)
+	} else {
+		fmt.Printf("%s", host)
+	}
+
+	return host
 }
 
 // func jsonToMap(jsonString string) map[string]interface{} {
