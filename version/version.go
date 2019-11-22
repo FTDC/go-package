@@ -228,7 +228,7 @@ func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr
 	command.Parames = append(command.Parames, token)
 
 	overWall := make(map[string]interface{})
-	overWall["value"] = "true"
+	overWall["value"] = true
 	command.Parames = append(command.Parames, overWall)
 
 	switchType := make(map[string]interface{})
