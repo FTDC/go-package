@@ -63,10 +63,11 @@ func (p *VersionPlugin) InitPlugin(messenger plugin.BinaryMessenger) error {
 // 初始化VPN
 func (p *VersionPlugin) startListenFunc(arguments interface{}) (reply interface{}, err error) {
 
-	cmd := exec.Command("XRoute.exe", "")
-	err = cmd.Start()
+	mapConn, _ = ln.Accept()
 	if err != nil {
-		fmt.Println(err.Error())
+		// handle error
+		fmt.Println(err)
+		//continue
 	}
 
 	go initVPN(p)
@@ -75,6 +76,12 @@ func (p *VersionPlugin) startListenFunc(arguments interface{}) (reply interface{
 }
 
 func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, err error) {
+
+	cmd := exec.Command("XRoute.exe", "")
+	err = cmd.Start()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 
 	//backMsg := jsonToMap(arguments.(string))
 	str2 := arguments.(string)
@@ -116,13 +123,6 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 
 func initVPN(p *VersionPlugin) (err error) {
 	//  创建守护进程
-	mapConn, _ = ln.Accept()
-	if err != nil {
-		// handle error
-		fmt.Println(err)
-		//continue
-	}
-
 	for {
 		// handle connection like any other net.Conn
 		//go func(conn net.Conn) {
@@ -151,6 +151,7 @@ func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 
 	//res := connectVpnServer(1, "aes-256-cfb", "58Ssd2nn95", "120.79.96.245", "8101", "0|0|test34qcPxEJcrE4xVLa41J5")
 	connectVpnServer(content["proxy_type"], content["encrypt_method"], content["password"], content["url"], content["port"], content["proxy_session_token"], content["user_id"], content["proxy_session_id"])
+
 	return "success", nil
 
 }
@@ -190,15 +191,16 @@ func getVersionFunc(arguments interface{}) (reply interface{}, err error) {
 	return "0.0.1", nil
 }
 
-// 链接vpn 服务器
+// 链接vpn 服务器   true  全局  false 智能
 func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr interface{}, urlStr interface{}, portStr interface{}, tokenStr interface{}, userId interface{}, sessionId interface{}) {
 
 	command := &Command{}
-	if connectType.(bool) {
-		command.Fnc = "startXRouteVPN"
-	} else {
-		command.Fnc = "startPoliceVPN"
-	}
+	command.Fnc = "startXRouteVPN"
+	//if connectType.(bool) {
+	//
+	//} else {
+	//	//command.Fnc = "startPoliceVPN"
+	//}
 
 	value := make(map[string]interface{})
 	value["value"] = valueStr
@@ -225,7 +227,18 @@ func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr
 	token["value"] = tokeStr
 	command.Parames = append(command.Parames, token)
 
+	overWall := make(map[string]interface{})
+	overWall["value"] = "true"
+	command.Parames = append(command.Parames, overWall)
+
+	switchType := make(map[string]interface{})
+	switchType["value"] = connectType
+	command.Parames = append(command.Parames, switchType)
+
 	connectJson, _ := json.Marshal(command)
+
+	fmt.Println("============================ connect vpn  command  =============================================")
+	fmt.Println(string(connectJson))
 
 	if _, err := fmt.Fprintln(mapConn, string(connectJson)); err != nil {
 		// handle error
