@@ -231,12 +231,12 @@ func connectVpnServer(selectEngine interface{}, connectType interface{}, valueSt
 }
 
 //  closeXRouteVPN   防火墙方案    closePoliceVPN  浏览器方案
-func closeVPN(connectType bool) {
-	fmt.Println(connectType)
+func closeVPN(selectEngine string) {
+	fmt.Println(selectEngine)
 
 	command := &Command{}
 	var commandName string
-	if connectType {
+	if selectEngine == "XRoute" {
 		commandName = "closeXRouteVPN"
 	} else {
 		commandName = "closePoliceVPN"
