@@ -34,14 +34,14 @@ type Command struct {
 }
 
 var _ flutter.Plugin = &VersionPlugin{}
-
 var ln, _ = npipe.Listen(`\\.\pipe\VPNMainWindow`)
 
-//var writeLn, _ = npipe.Dial(`\\.\pipe\VPNMainWindow`)
 var mapConn net.Conn // 链接句柄
 
 //  类型
 //  1  全局线路  2 智能线路
+
+// closeXRouteVPN   防火墙方案    closePoliceVPN  浏览器方案
 
 //  1 创建管道
 //  2 打开 Xroute
@@ -52,7 +52,7 @@ func (p *VersionPlugin) InitPlugin(messenger plugin.BinaryMessenger) error {
 	p.channel = plugin.NewMethodChannel(messenger, channelName, plugin.StandardMethodCodec{})
 	p.channel.HandleFunc(getVersion, getVersionFunc)
 	p.channel.HandleFunc(openUrl, openUrlFunc)
-	p.channel.HandleFunc(initVpn, p.initVpnFunc)
+	p.channel.HandleFunc(initVpn, initVpnFunc)
 	p.channel.HandleFunc(startListen, p.startListenFunc)
 	p.channel.HandleFunc(connectVpn, ConnectVpnFunc)
 	p.channel.HandleFunc(closeConnect, closeConnectFunc)
@@ -65,17 +65,18 @@ func (p *VersionPlugin) startListenFunc(arguments interface{}) (reply interface{
 
 	mapConn, _ = ln.Accept()
 	if err != nil {
-		// handle error
 		fmt.Println(err)
 		//continue
 	}
 
-	go initVPN(p)
+	initVPNChannel(p)
+
+	fmt.Println("****************************    listen  success            *****************************************")
 
 	return "success", nil
 }
 
-func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, err error) {
+func initVpnFunc(arguments interface{}) (reply interface{}, err error) {
 
 	cmd := exec.Command("XRoute.exe", "")
 	err = cmd.Start()
@@ -83,28 +84,14 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 		fmt.Println(err.Error())
 	}
 
+	fmt.Println("*********************************************************************")
+
 	//backMsg := jsonToMap(arguments.(string))
-	str2 := arguments.(string)
-	m := make(map[string]interface{})
-	json.Unmarshal([]byte(str2), &m)
-
-	data := m["routeList"].(map[string]interface{})
-
-	url := data["pc_d2o"]
-	fmt.Println(url)
-
 	command := &Command{}
 	command.Fnc = "init"
 	command.Parames = []map[string]interface{}{}
 	initStr, _ := json.Marshal(command)
-	fmt.Println(string(initStr))
-
-	// 设置 PAC 命令
-	command.Fnc = "setPacUrl"
-	pac := make(map[string]interface{})
-	pac["value"] = url
-	command.Parames = append(command.Parames, pac)
-	pacStr, _ := json.Marshal(command)
+	fmt.Println("start-init:" + string(initStr))
 
 	// 设置init
 	if _, err := fmt.Fprintln(mapConn, string(initStr)); err != nil {
@@ -112,30 +99,24 @@ func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, e
 		fmt.Println(err)
 	}
 
-	// 设置 Pac
-	if _, err := fmt.Fprintln(mapConn, string(pacStr)); err != nil {
-		// handle error
-		fmt.Println(err)
-	}
-
 	return "success", nil
 }
 
-func initVPN(p *VersionPlugin) (err error) {
+func initVPNChannel(p *VersionPlugin) (err error) {
 	//  创建守护进程
 	for {
 		// handle connection like any other net.Conn
-		//go func(conn net.Conn) {
-		r := bufio.NewReader(mapConn)
-		msg, err := r.ReadString('}')
-		if err != nil {
-			// handle error
-		}
-		if msg != "" {
-			//go p.channel.InvokeMethod(backMsg["fnc"].(string), nil)
-			go p.channel.InvokeMethod(msg, nil)
-		}
-		//}(mapConn)
+		go func() {
+			r := bufio.NewReader(mapConn)
+			msg, err := r.ReadString('}')
+			if err != nil {
+				// handle error
+			}
+			if msg != "" {
+				//go p.channel.InvokeMethod(backMsg["fnc"].(string), nil)
+				p.channel.InvokeMethod(msg, nil)
+			}
+		}()
 	}
 
 }
@@ -146,11 +127,11 @@ func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 	m := make(map[string]interface{})
 	json.Unmarshal([]byte(str2), &m)
 
-	//routeList := m["routeList"].(map[string]interface{})
+	routeList := m["routeList"].(map[string]interface{})
 	content := m["content"].(map[string]interface{})
 
 	//res := connectVpnServer(1, "aes-256-cfb", "58Ssd2nn95", "120.79.96.245", "8101", "0|0|test34qcPxEJcrE4xVLa41J5")
-	connectVpnServer(content["proxy_type"], content["encrypt_method"], content["password"], content["url"], content["port"], content["proxy_session_token"], content["user_id"], content["proxy_session_id"])
+	connectVpnServer(m["selectEngine"].(string), content["app_type"], content["proxy_type"], content["encrypt_method"], content["password"], content["url"], content["port"], content["proxy_session_token"], content["user_id"], content["proxy_session_id"], routeList["pc_d2o"])
 
 	return "success", nil
 
@@ -162,8 +143,8 @@ func closeConnectFunc(arguments interface{}) (reply interface{}, err error) {
 	m := make(map[string]interface{})
 	json.Unmarshal([]byte(str2), &m)
 
-	content := m["content"].(map[string]interface{})
-	closeVPN(content["proxy_type"].(bool))
+	//content := m["content"].(map[string]interface{})
+	closeVPN(m["selectEngine"].(string))
 
 	return "success", nil
 }
@@ -188,19 +169,19 @@ func openUrlFunc(arguments interface{}) (reply interface{}, err error) {
 }
 
 func getVersionFunc(arguments interface{}) (reply interface{}, err error) {
-	return "0.0.1", nil
+	return "1.0.0", nil
 }
 
 // 链接vpn 服务器   true  全局  false 智能
-func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr interface{}, urlStr interface{}, portStr interface{}, tokenStr interface{}, userId interface{}, sessionId interface{}) {
+func connectVpnServer(selectEngine interface{}, app_type interface{}, connectType interface{}, valueStr interface{}, passwordStr interface{}, urlStr interface{}, portStr interface{}, tokenStr interface{}, userId interface{}, sessionId interface{}, pacUrl interface{}) {
 
 	command := &Command{}
-	command.Fnc = "startXRouteVPN"
-	//if connectType.(bool) {
-	//
-	//} else {
-	//	//command.Fnc = "startPoliceVPN"
-	//}
+
+	if selectEngine == "XRoute" {
+		command.Fnc = "startXRouteVPN"
+	} else {
+		command.Fnc = "startPoliceVPN"
+	}
 
 	value := make(map[string]interface{})
 	value["value"] = valueStr
@@ -227,17 +208,38 @@ func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr
 	token["value"] = tokeStr
 	command.Parames = append(command.Parames, token)
 
-	overWall := make(map[string]interface{})
-	overWall["value"] = true
-	command.Parames = append(command.Parames, overWall)
+	if selectEngine == "XRoute" {
 
-	switchType := make(map[string]interface{})
-	switchType["value"] = connectType
-	command.Parames = append(command.Parames, switchType)
+		// 0  国内翻国外    1  国外翻国内    2  国内翻国内
+		overWall := make(map[string]interface{})
+		if app_type == "d2d" {
+			overWall["value"] = 2
+		}
+
+		if app_type == "o2d" {
+			overWall["value"] = 1
+		}
+
+		if app_type == "d2o" {
+			overWall["value"] = 0
+		}
+
+		command.Parames = append(command.Parames, overWall)
+
+		// 全局 true    智能  false
+		switchType := make(map[string]interface{})
+		switchType["value"] = connectType
+		command.Parames = append(command.Parames, switchType)
+	} else {
+
+		pacPath := make(map[string]interface{})
+		pacPath["value"] = pacUrl
+		command.Parames = append(command.Parames, pacPath)
+	}
 
 	connectJson, _ := json.Marshal(command)
 
-	fmt.Println("============================ connect vpn  command  =============================================")
+	fmt.Println("============================ connect vpn  command  =======================")
 	fmt.Println(string(connectJson))
 
 	if _, err := fmt.Fprintln(mapConn, string(connectJson)); err != nil {
@@ -247,12 +249,13 @@ func connectVpnServer(connectType interface{}, valueStr interface{}, passwordStr
 
 }
 
-func closeVPN(connectType bool) {
-	fmt.Println(connectType)
+//  closeXRouteVPN   防火墙方案    closePoliceVPN  浏览器方案
+func closeVPN(selectEngine string) {
+	fmt.Println(selectEngine)
 
 	command := &Command{}
 	var commandName string
-	if connectType {
+	if selectEngine == "XRoute" {
 		commandName = "closeXRouteVPN"
 	} else {
 		commandName = "closePoliceVPN"

@@ -127,7 +127,7 @@ func ConnectVpnFunc(arguments interface{}) (reply interface{}, err error) {
 	content := m["content"].(map[string]interface{})
 
 	//res := connectVpnServer(1, "aes-256-cfb", "58Ssd2nn95", "120.79.96.245", "8101", "0|0|test34qcPxEJcrE4xVLa41J5")
-	connectVpnServer(content["selectEngine"], content["proxy_type"], content["encrypt_method"], content["password"], content["url"], content["port"], content["proxy_session_token"], content["user_id"], content["proxy_session_id"], content["pc_d2o"])
+	connectVpnServer(m["selectEngine"].(string), content["proxy_type"], content["encrypt_method"], content["password"], content["url"], content["port"], content["proxy_session_token"], content["user_id"], content["proxy_session_id"], content["pc_d2o"])
 
 	return "success", nil
 
@@ -139,8 +139,8 @@ func closeConnectFunc(arguments interface{}) (reply interface{}, err error) {
 	m := make(map[string]interface{})
 	json.Unmarshal([]byte(str2), &m)
 
-	content := m["content"].(map[string]interface{})
-	closeVPN(content["proxy_type"].(bool))
+	//content := m["content"].(map[string]interface{})
+	closeVPN(m["selectEngine"].(string))
 
 	return "success", nil
 }
@@ -204,7 +204,7 @@ func connectVpnServer(selectEngine interface{}, connectType interface{}, valueSt
 	token["value"] = tokeStr
 	command.Parames = append(command.Parames, token)
 
-	// true  国内翻国外    false  国外翻国内
+	// 0  国内翻国外    1  国外翻国内    2  国内翻国内
 	overWall := make(map[string]interface{})
 	overWall["value"] = false
 	command.Parames = append(command.Parames, overWall)
@@ -220,7 +220,7 @@ func connectVpnServer(selectEngine interface{}, connectType interface{}, valueSt
 
 	connectJson, _ := json.Marshal(command)
 
-	fmt.Println("============================ connect vpn  command  =============================================")
+	fmt.Println("============================ connect vpn  command  =======================")
 	fmt.Println(string(connectJson))
 
 	if _, err := fmt.Fprintln(mapConn, string(connectJson)); err != nil {
