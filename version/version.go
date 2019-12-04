@@ -52,7 +52,7 @@ func (p *VersionPlugin) InitPlugin(messenger plugin.BinaryMessenger) error {
 	p.channel = plugin.NewMethodChannel(messenger, channelName, plugin.StandardMethodCodec{})
 	p.channel.HandleFunc(getVersion, getVersionFunc)
 	p.channel.HandleFunc(openUrl, openUrlFunc)
-	p.channel.HandleFunc(initVpn, initVpnFunc)
+	p.channel.HandleFunc(initVpn, p.initVpnFunc)
 	p.channel.HandleFunc(startListen, p.startListenFunc)
 	p.channel.HandleFunc(connectVpn, ConnectVpnFunc)
 	p.channel.HandleFunc(closeConnect, closeConnectFunc)
@@ -69,24 +69,6 @@ func (p *VersionPlugin) startListenFunc(arguments interface{}) (reply interface{
 		//continue
 	}
 
-	initVPNChannel(p)
-
-	fmt.Println("****************************    listen  success            *****************************************")
-
-	return "success", nil
-}
-
-func initVpnFunc(arguments interface{}) (reply interface{}, err error) {
-
-	cmd := exec.Command("XRoute.exe", "")
-	err = cmd.Start()
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	fmt.Println("*********************************************************************")
-
-	//backMsg := jsonToMap(arguments.(string))
 	command := &Command{}
 	command.Fnc = "init"
 	command.Parames = []map[string]interface{}{}
@@ -99,24 +81,37 @@ func initVpnFunc(arguments interface{}) (reply interface{}, err error) {
 		fmt.Println(err)
 	}
 
+	// 监听管道消息， 发送给Flutter
+	go initVPNChannel(p)
+
 	return "success", nil
 }
 
-func initVPNChannel(p *VersionPlugin) (err error) {
+// 启动原生链接的程序
+func (p *VersionPlugin) initVpnFunc(arguments interface{}) (reply interface{}, err error) {
+
+	cmd := exec.Command("XRoute.exe", "")
+	err = cmd.Start()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	return "success", nil
+}
+
+func initVPNChannel(p *VersionPlugin) {
 	//  创建守护进程
 	for {
 		// handle connection like any other net.Conn
-		go func() {
-			r := bufio.NewReader(mapConn)
-			msg, err := r.ReadString('}')
-			if err != nil {
-				// handle error
-			}
-			if msg != "" {
-				//go p.channel.InvokeMethod(backMsg["fnc"].(string), nil)
-				p.channel.InvokeMethod(msg, nil)
-			}
-		}()
+		//go func(conn net.Conn) {
+		r := bufio.NewReader(mapConn)
+		msg, _ := r.ReadString('}')
+
+		if msg != "" {
+			//go p.channel.InvokeMethod(backMsg["fnc"].(string), nil)
+			go p.channel.InvokeMethod(msg, nil)
+		}
+		//}(mapConn)
 	}
 
 }
@@ -155,11 +150,9 @@ func closeConnectFunc(arguments interface{}) (reply interface{}, err error) {
 func openUrlFunc(arguments interface{}) (reply interface{}, err error) {
 
 	argsMap := arguments.(map[interface{}]interface{})
-
 	url := argsMap["url"].(string)
 
 	cmd := exec.Command("explorer", url)
-	//cmd := exec.Command("XRoute.exe", "")
 	err = cmd.Start()
 	if err != nil {
 		fmt.Println(err.Error())
@@ -173,7 +166,7 @@ func getVersionFunc(arguments interface{}) (reply interface{}, err error) {
 }
 
 // 链接vpn 服务器   true  全局  false 智能
-func connectVpnServer(selectEngine interface{}, app_type interface{}, connectType interface{}, valueStr interface{}, passwordStr interface{}, urlStr interface{}, portStr interface{}, tokenStr interface{}, userId interface{}, sessionId interface{}, pacUrl interface{}) {
+func connectVpnServer(selectEngine interface{}, appType interface{}, connectType interface{}, valueStr interface{}, passwordStr interface{}, urlStr interface{}, portStr interface{}, tokenStr interface{}, userId interface{}, sessionId interface{}, pacUrl interface{}) {
 
 	command := &Command{}
 
@@ -212,18 +205,16 @@ func connectVpnServer(selectEngine interface{}, app_type interface{}, connectTyp
 
 		// 0  国内翻国外    1  国外翻国内    2  国内翻国内
 		overWall := make(map[string]interface{})
-		if app_type == "d2d" {
-			overWall["value"] = 2
-		}
-
-		if app_type == "o2d" {
+		switch appType {
+		case "d2o":
+			overWall["value"] = 0
+		case "o2d":
 			overWall["value"] = 1
-		}
-
-		if app_type == "d2o" {
+		case "d2d":
+			overWall["value"] = 2
+		default:
 			overWall["value"] = 0
 		}
-
 		command.Parames = append(command.Parames, overWall)
 
 		// 全局 true    智能  false
